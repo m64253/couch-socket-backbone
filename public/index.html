@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+
+<script src="/public/jquery-1.8.0.js"></script>
+<script src="../node_modules/underscore/underscore.js"></script>
+<script src="../node_modules/backbone/backbone.js"></script>
+
+<script src="/socket.io/socket.io.js"></script>
+
+
+<script>
+	var socket = io.connect('http://localhost'),
+		
+		watch = function (name, id, fn, scope) {
+			socket.emit(name, id, function (err, event) {
+				if (err) {
+					return alert(err);
+				}
+				socket.on(event, function () {
+					fn.apply(scope, arguments);
+				});
+			});
+		},
+			
+		Model = Backbone.Model.extend({
+			idAttribute: '_id',
+			urlRoot: '/db',
+			
+			reset: function (attrs, options) {
+				this.clear({
+					silent: true
+				});
+				this.set(attrs, options);
+				return this;
+			},
+			
+			watch: function () {
+				watch('watch:doc', model.id, function (err, doc) {
+					if (err) {
+						return alert(err);
+					}
+					if (doc.deleted) {
+						// Setting model.id to NULL stops it
+						// from being sent (DELETE) to the server
+						this.id === null;
+						this.destroy();
+					} else {
+						this.reset(doc);
+					}
+				}, this);
+			}
+		}),
+
+		Collection = Backbone.Collection.extend({
+			model: Model,
+			url: '/db/_design/app/_view/foo?include_docs=true',
+			parse: function (res) {
+				return res && _.reduce(res.rows || [], function (memo, row) {
+					var doc = row.doc;
+					if (doc && !doc.deleted) {
+						memo.push(doc);
+					}
+					return memo;
+				}, []);
+			},
+			watch: function () {
+				watch('watch:view', 'app/foo', function (err, doc) {
+					if (err) {
+						return alert(err);
+					}
+					var model = this.get(doc._id);
+										
+					if (doc.deleted) {
+						if (model) {
+							// Setting model.id to NULL stops it
+							// from being sent (DELETE) to the server
+							model.id === null;
+							model.destroy();
+						}
+					} else if (model) {
+						debugger;
+						model.reset(doc);
+					} else {
+						this.add([ doc ]);
+					}
+				}, this);
+			}
+		}),
+
+		View = Backbone.View.extend({
+			events: {
+				'click li': function (e) {
+					var i = this._$rows.index(e.currentTarget);
+					this._selected = this.collection.at(i);
+					this.render();
+				}
+			},
+			initialize: function () {
+				this.collection.on('change', this.render, this);
+				this.collection.on('add', this.render, this);
+				this.collection.on('remove', this.render, this);
+				this.collection.on('reset', this.render, this);
+			},
+			render: function () {
+				var html = [ '<h1>Couch <-> Socket.IO <-> Backbone</h1>' ];
+				
+				if (this._selected) {
+					html.push('<p>' + JSON.stringify(this._selected.toJSON()) + '</p>');
+				}
+
+				html.push('</ul>');
+				this.collection.reduce(function (memo, model) {
+					memo.push('<li>' + JSON.stringify(model.toJSON()) + '</li>');
+					return memo;
+				}, html);
+				html.push('</ul>');
+				
+				this.el.innerHTML = html.join('');
+				
+				this._$rows = this.$('li');
+			}
+		}),
+		
+		model = new Model({
+			_id: 'c9fe6d812e4b8579c51e057f55002612'
+		}),
+		
+		collection = new Collection([ model ]),
+			
+		view = new View({
+			collection: collection
+		});
+
+	view.render();
+	
+	document.body.appendChild(view.el);
+
+	collection.watch();
+</script>
+	
+	
+	
+
+
+</body>
+</html>
