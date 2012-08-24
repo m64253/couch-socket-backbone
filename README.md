@@ -19,6 +19,4 @@ node index.js
 ```
 
 ### Check out in your browser
-```
 http://127.0.0.1:3000/public
-```
