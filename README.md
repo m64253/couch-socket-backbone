@@ -10,7 +10,7 @@ npm install
 
 ### Upload the design document to your couch server
 ```
-/node_modules/.bin/couchapp push design.js http://admin:admin@127.0.0.1:5984/test1
+./node_modules/.bin/couchapp push design.js http://admin:admin@127.0.0.1:5984/test1
 ```
 
 ### Run server
